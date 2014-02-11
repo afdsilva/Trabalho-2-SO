@@ -26,6 +26,8 @@ Sistemas Operacionais - Prof. Maurício Lima Pilla
 		-bd: Imprime os índices de todos os blocos que estão livres e que tem conteúdo diferente de zeros, em uma única linha.
 		-cf1: Copia o conteúdo da segunda cópida da FAT na primeira cópia.
 		-cf2: Copia o conteúdo da primeira cópida da FAT na segunda cópia.
+		-cdf1: copia a fat1 de outro disco (disco_2) para fat1 do disco principal.
+		-cdf2: copia a fat1 de outro disco (disco_2) para fat2 do disco principal.
 	
 
 ===========
@@ -37,4 +39,8 @@ Sistemas Operacionais - Prof. Maurício Lima Pilla
 	Correcao de fat, copia a estrutura de uma fat na posicao de outra;
 
 	Testes: verificacao de FATs, eh feita usando um outro disco virtual, eh alterado o conteudo de algum dos discos (manualmente), depois usando o parametro -cdf1 ou -cdf2, sera
-	copiado dados da fat1 do disco_2 para a fat1 ou fat2 do 1o disco (experimental, poucos testes foram feitos para validar se os dados realmente estao sendo 
+	copiado dados da fat1 do disco_2 para a fat1 ou fat2 do 1o disco;
+	Blocos livres pode ser verificado a qualquer momento, ou apos alguma alteracao no sistema de arquivos;
+	Blocos livres com dados, pode ser verificado apos alguma remocao do sistema de arquivos;
+	Correcao de fat, pode ser executada apos a copia da fat usando os parametros -cdf1 ou cdf2 e verificado com o -vf;
+	

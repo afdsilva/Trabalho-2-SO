@@ -303,6 +303,8 @@ void ajuda() {
 	printf("	-bd: Imprime os índices de todos os blocos que estão livres e que tem conteúdo diferente de zeros, em uma única linha.\n");
 	printf("	-cf1: Copia o conteúdo da segunda cópida da FAT na primeira cópia.\n");
 	printf("	-cf2: Copia o conteúdo da primeira cópida da FAT na segunda cópia.\n");
+	printf("	-cdf1: copia a fat1 de outro disco (disco_2) para fat1 do disco principal.\n");
+	printf("	-cdf2: copia a fat1 de outro disco (disco_2) para fat2 do disco principal.\n");
 }
 
 FILE * init(const char * fileName, char * str) {
