@@ -17,8 +17,8 @@ all: $(OBJECTS)
 	@gcc -m32 exemplo.c -o $(EXECUTABLE)
 	@echo "Programa compilado..."
 criar_discos:
-	@dd if=/dev/zero of=disco bs=512 count=32708
-	@dd if=/dev/zero of=disco_2 bs=512 count=32708
+	@dd if=/dev/zero of=disco bs=1MB count=2
+	@dd if=/dev/zero of=disco_2 bs=1MB count=2
 	@mkfs.vfat -F16 disco
 	@mkfs.vfat -F16 disco_2
 	@mkdir ponto_montagem

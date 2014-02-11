@@ -38,6 +38,7 @@ int main(int argc, char ** argv) {
 				dif_fat(fp,bs,false);
 			} else if (strcmp(argument,"bl") == 0) {
 				printf("Imprimir lista de blocos livres\n");
+				blocos_livres(fp,bs);
 			} else if (strcmp(argument,"bd") == 0) {
 				printf("Imprimir lista de blocos livres com dados\n");
 				blocos_deletados(fp,bs);
@@ -129,7 +130,42 @@ void dif_fat(FILE * in, BootSector bs, bool show) {
 		}
 	}
 }
+
 void blocos_livres(FILE * in, BootSector bs) {
+	int nr_fat_sectors = (bs.fat_size_sectors * bs.sector_size / 2) - 2;
+    int i, j = 0;
+	u_int32_t start_fat1 = sizeof(BootSector) + (bs.reserved_sectors-1) * bs.sector_size;;
+	u_int32_t start_fat2 = sizeof(BootSector) + start_fat1 + (bs.fat_size_sectors - 1) * bs.sector_size;
+	u_int32_t root_start = start_fat1 + bs.fat_size_sectors * bs.number_of_fats * bs.sector_size;
+	u_int32_t data_start = root_start + (sizeof(Entry) * (bs.root_dir_entries));
+    u_int32_t cluster_size = bs.sectors_per_cluster * bs.sector_size;
+	u_int32_t cluster[bs.sector_size];
+	u_int32_t pos = 0;
+    fseek(in, data_start, SEEK_SET);
+	int count = 0;
+	int zero = 0;
+	printf("LIVRE: ", count);
+	
+	while(!feof(in)) {
+		//inicia novo cluster
+		zero = 0;
+		fread(&cluster, cluster_size, 1, in);
+		pos++;
+		for(i = 0; i < bs.sector_size; i++) {
+			if (cluster[i] != 0)
+				zero = 1;
+		}
+		if (!zero) {
+			count++;
+			if (j != 0)
+				printf(", ");
+			j++;
+			
+			printf("%d",pos);
+		}
+	}
+	printf("\n");
+	//printf("TOTAL LIVRE: %d\n", count);
 	
 }
 void blocos_deletados(FILE * in, BootSector bs) {
