@@ -114,33 +114,32 @@ void dif_fat(FILE * in, BootSector bs, bool show) {
 	u_int32_t start_fat1 = sizeof(BootSector) + (bs.reserved_sectors-1) * bs.sector_size;;
 	u_int32_t start_fat2 = sizeof(BootSector) + start_fat1 + (bs.fat_size_sectors - 1) * bs.sector_size;
 	u_int32_t root_start = sizeof(BootSector) + start_fat2 + (bs.fat_size_sectors - 1) * bs.sector_size;
-	int sizeStarts = start_fat2 - start_fat1 - 2;
-	int sizeRootF2 = root_start - start_fat2;
     u_short fat1[nr_fat_sectors];
     u_short fat2[nr_fat_sectors];
-    int sizeOf = sizeof(fat1);
     
-    //printf("sizeStarts: %d sizeOf: %d sizeRootF2: %d\n",sizeStarts, sizeOf, sizeRootF2);
-    //printf("Nr setores: %d \nPosicao inicial fat1: 0x%X\n", nr_fat_sectors, start_fat1);
-    fseek(in, start_fat1 + 4, SEEK_SET);
+    //printf("Posicao inicial fat1: 0x%X\n", start_fat1);
+    fseek(in, start_fat1+4, SEEK_SET);
     fread(&fat1, sizeof(fat1), 1, in);
     //printf("Posicao final fat1: 0x%lX\n", ftell(in));
     
     //printf("Posicao inicial fat2: 0x%X\n", start_fat2);
-    fseek(in, start_fat2 + 4, SEEK_SET);
+    fseek(in, start_fat2+4, SEEK_SET);
     fread(&fat2, sizeof(fat2), 1, in);
     //printf("Posicao final fat2: 0x%lX\n root: 0x%X\n", ftell(in),root_start);
     
     int i = 0;
     int count = 0;
     for (i = 0; i < nr_fat_sectors; i++) {
+		//printf("FAT %d: 0x%04X,0x%04X\n",i,fat1[i],fat2[i]);
 		if (fat1[i] != fat2[i]) {
 			count++;
-			printf("DIF %d:%d,%d\n",i,fat1[i],fat2[i]);
+			printf("DIF %d: 0x%04X,0x%04X\n",i,fat1[i],fat2[i]);
 		}
+		if (i > 50)
+			break;
 	}
-	if (count == 0) 
-		printf("nenhuma diferenca entre as FATs\n");
+	//if (count == 0) 
+	//	printf("nenhuma diferenca entre as FATs\n");
 	if (show) {
 		printf("FAT:\n");
 		for (i = 0; i < nr_fat_sectors; i++) {
@@ -242,7 +241,7 @@ void corrige_fat(FILE * in, int nr_fat) {
 	BootSector bs = ReadBootSector(in);
 	
 	int nr_fat_sectors = (bs.fat_size_sectors * bs.sector_size / 2) - 2;
-	printf("nr_fat_sectors: %d\n", nr_fat_sectors);
+	//printf("nr_fat_sectors: %d\n", nr_fat_sectors);
 	u_int32_t start_fat1 = sizeof(BootSector) + (bs.reserved_sectors-1) * bs.sector_size;
 	u_int32_t start_fat2 = sizeof(BootSector) + start_fat1 + (bs.fat_size_sectors - 1) * bs.sector_size;
     u_short fat1[nr_fat_sectors];
@@ -275,20 +274,22 @@ void copia_fat(FILE * in, FILE * out,int nr_fat_in, int nr_fat_out) {
 	
 	if(nr_fat_in == 1) {
 		start_fat_in = sizeof(BootSector) + (bs_in.reserved_sectors-1) * bs_in.sector_size;
-	} else if (nr_fat_in == 2) {
+	} else {
 		u_int32_t start_fat1 = sizeof(BootSector) + (bs_in.reserved_sectors-1) * bs_in.sector_size;
 		start_fat_in = sizeof(BootSector) + start_fat1 + (bs_in.fat_size_sectors - 1) * bs_in.sector_size;
 	}
+	//printf("start_fat_in: 0x%04X\n", start_fat_in);
 	fseek(in, start_fat_in + 4, SEEK_SET);
 	fread(&fat_in, sizeof(fat_in), 1, in);
 	
 	u_short fat_out[nr_fat_sectors];
 	if(nr_fat_out == 1) {
 		start_fat_out = sizeof(BootSector) + (bs_out.reserved_sectors-1) * bs_out.sector_size;
-	} else if (nr_fat_out == 2) {
+	} else {
 		u_int32_t start_fat1 = sizeof(BootSector) + (bs_out.reserved_sectors-1) * bs_out.sector_size;
 		start_fat_out = sizeof(BootSector) + start_fat1 + (bs_out.fat_size_sectors - 1) * bs_out.sector_size;
 	}
+	//printf("start_fat_out: 0x%04X\n", start_fat_out);
 	fseek(out, start_fat_out + 4, SEEK_SET);
 	fwrite (fat_in , sizeof(fat_in), 1, out);
 	

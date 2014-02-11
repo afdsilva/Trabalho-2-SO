@@ -1,4 +1,40 @@
 Trabalho-2-SO
 =============
 
-Trabalho 2 SO - UFPel 2013/2
+Trabalho 2 SO - UFPel 2014
+
+Ferramenta para veriﬁcar sistemas de arquivos FAT16
+
+André Felipe da Silva - 11107587
+afdsilva@inf.ufpel.edu.br
+Ciencia da Computação
+
+Sistemas Operacionais - Prof. Maurício Lima Pilla
+
+===========
+
+	Compilação: make
+	Criacao de discos virtuais: make criar_discos
+	Montagem dos discos: make monta_particoes
+	Desmontagem: make desmonta_particoes
+	
+===========
+	
+	Uso: ./testeme
+		-vf: Veriﬁcar se as duas FATs são iguais – caso não sejam, imprime uma lista de diferenças no seguinte formato, com uma linha para cada diferença.
+		-bl: Imprime os índices de todos os blocos que estão livres (ou seja, não são apontados pela FAT) em uma única linha.
+		-bd: Imprime os índices de todos os blocos que estão livres e que tem conteúdo diferente de zeros, em uma única linha.
+		-cf1: Copia o conteúdo da segunda cópida da FAT na primeira cópia.
+		-cf2: Copia o conteúdo da primeira cópida da FAT na segunda cópia.
+	
+
+===========
+	
+	Informações & metodologia: 
+	Verificacao das FATs, le as duas FATs, e compara cada item se possui o mesmo offset;
+	Blocos Livres, verifica se o item da FAT possui valor diferente de 0;
+	Blocos livres com dados, verifica todos os clusters, procurando se o inicio do cluster se encontra em alguma entrada da FAT;
+	Correcao de fat, copia a estrutura de uma fat na posicao de outra;
+
+	Testes: verificacao de FATs, eh feita usando um outro disco virtual, eh alterado o conteudo de algum dos discos (manualmente), depois usando o parametro -cdf1 ou -cdf2, sera
+	copiado dados da fat1 do disco_2 para a fat1 ou fat2 do 1o disco (experimental, poucos testes foram feitos para validar se os dados realmente estao sendo 

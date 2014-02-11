@@ -27,7 +27,7 @@ criar_discos:
 	@echo "Discos e Pontos de Montagem criados"
 monta_particoes:
 	@sudo mount -o loop,uid=1000,gid=1000 disco ponto_montagem/
-	@sudo mount -o loop,uid=1000,gid=1000 disco ponto_montagem_disco_2/
+	@sudo mount -o loop,uid=1000,gid=1000 disco_2 ponto_montagem_disco_2/
 	@echo "Particoes montadas"
 desmonta_particoes:
 	@sudo umount ponto_montagem/
