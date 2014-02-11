@@ -10,6 +10,8 @@ void dif_fat(FILE * in, BootSector bs, bool show);
 void blocos_livres(FILE * in, BootSector bs);
 void blocos_deletados(FILE * in, BootSector bs);
 
+void copia_fat(FILE * in, FILE * out,int fat_in, int fat_out);
+//void seek_dir(FILE * in,
 void ajuda();
 FILE * init(const char * fileName);
 BootSector ReadBootSector(FILE * in);
@@ -36,7 +38,6 @@ int main(int argc, char ** argv) {
 				dif_fat(fp,bs,false);
 			} else if (strcmp(argument,"bl") == 0) {
 				printf("Imprimir lista de blocos livres\n");
-				
 			} else if (strcmp(argument,"bd") == 0) {
 				printf("Imprimir lista de blocos livres com dados\n");
 				blocos_deletados(fp,bs);
@@ -44,6 +45,15 @@ int main(int argc, char ** argv) {
 				printf("Corrigir a primeira cópia da FAT\n");
 			} else if (strcmp(argument,"cf2") == 0) {
 				printf("Corrigir a segunda cópia da FAT\n");
+			} else if (strcmp(argument,"cdf1") == 0) {
+				/**
+				 * Copia a fat1 do disco 2 para fat1 do disco 2 para gerar caso de testes
+				 **/
+				FILE * fp2 = init("disco_2");
+			} else if (strcmp(argument,"cdf2") == 0) {
+				/**
+				 * Copia a fat1 do disco 2 para fat2 do disco 1 para gerar caso de testes
+				 **/
 			} else {
 				printf("Argumento desconhecido!\n");
 				ajuda();
@@ -71,7 +81,7 @@ void print_file_info(Entry *entry) {
         printf("Directory: [%.8s.%.3s]\n", entry->filename, entry->ext);
         break;
     default:
-        printf("File: [%.8s.%.3s]\n", entry->filename, entry->ext);
+        printf("File: [%.8s.%.3s][offset:0x%04X]\n", entry->filename, entry->ext,entry->starting_cluster);
     }
 
     printf("  Modified: %04d-%02d-%02d %02d:%02d.%02d    Start: [%04X]    Size: %d\n",
@@ -80,7 +90,7 @@ void print_file_info(Entry *entry) {
         entry->starting_cluster, entry->file_size);
 }
 void dif_fat(FILE * in, BootSector bs, bool show) {
-//void dif_fat(FILE * in, int nr_fat_sectors, bool show) {
+	
 	int nr_fat_sectors = (bs.fat_size_sectors * bs.sector_size / 2) - 2;
 	u_int32_t start_fat1 = sizeof(BootSector) + (bs.reserved_sectors-1) * bs.sector_size;;
 	u_int32_t start_fat2 = sizeof(BootSector) + start_fat1 + (bs.fat_size_sectors - 1) * bs.sector_size;
@@ -91,23 +101,27 @@ void dif_fat(FILE * in, BootSector bs, bool show) {
     u_short fat2[nr_fat_sectors];
     int sizeOf = sizeof(fat1);
     
-    printf("sizeStarts: %d sizeOf: %d sizeRootF2: %d\n",sizeStarts, sizeOf, sizeRootF2);
-    printf("Nr setores: %d \nPosicao inicial fat1: 0x%X\n", nr_fat_sectors, start_fat1);
+    //printf("sizeStarts: %d sizeOf: %d sizeRootF2: %d\n",sizeStarts, sizeOf, sizeRootF2);
+    //printf("Nr setores: %d \nPosicao inicial fat1: 0x%X\n", nr_fat_sectors, start_fat1);
     fseek(in, start_fat1 + 4, SEEK_SET);
     fread(&fat1, sizeof(fat1), 1, in);
-    printf("Posicao final fat1: 0x%lX\n", ftell(in));
+    //printf("Posicao final fat1: 0x%lX\n", ftell(in));
     
-    printf("Posicao inicial fat2: 0x%X\n", start_fat2);
+    //printf("Posicao inicial fat2: 0x%X\n", start_fat2);
     fseek(in, start_fat2 + 4, SEEK_SET);
     fread(&fat2, sizeof(fat2), 1, in);
-    printf("Posicao final fat2: 0x%lX\n root: 0x%X\n", ftell(in),root_start);
+    //printf("Posicao final fat2: 0x%lX\n root: 0x%X\n", ftell(in),root_start);
     
     int i = 0;
+    int count = 0;
     for (i = 0; i < nr_fat_sectors; i++) {
 		if (fat1[i] != fat2[i]) {
+			count++;
 			printf("DIF %d:%ud,%ud\n",i,fat1[i],fat2[i]);
 		}
 	}
+	if (count == 0) 
+		printf("nenhuma diferenca entre as FATs\n");
 	if (show) {
 		printf("FAT:\n");
 		for (i = 0; i < nr_fat_sectors; i++) {
@@ -119,14 +133,57 @@ void blocos_livres(FILE * in, BootSector bs) {
 	
 }
 void blocos_deletados(FILE * in, BootSector bs) {
-	u_int32_t root_start = sizeof(BootSector) + (bs.fat_size_sectors * bs.number_of_fats) * bs.sector_size;
-	Entry entry;
-    fseek(in, root_start, SEEK_SET);
-	int i;
-	for(i=0; i<bs.root_dir_entries; i++) {
-		fread(&entry, sizeof(entry), 1, in);
-		print_file_info(&entry);
-	}	
+
+	int nr_fat_sectors = (bs.fat_size_sectors * bs.sector_size / 2) - 2;
+    int i, j;
+	u_int32_t start_fat1 = sizeof(BootSector) + (bs.reserved_sectors-1) * bs.sector_size;;
+	u_int32_t start_fat2 = sizeof(BootSector) + start_fat1 + (bs.fat_size_sectors - 1) * bs.sector_size;
+	u_int32_t root_start = start_fat1 + bs.fat_size_sectors * bs.number_of_fats * bs.sector_size;
+	u_int32_t data_start = root_start + (sizeof(Entry) * (bs.root_dir_entries));
+    u_short fat1[nr_fat_sectors];
+    u_int32_t cluster_size = bs.sectors_per_cluster * bs.sector_size;
+	u_int32_t cluster[bs.sector_size];
+	u_int32_t pos = 0;
+    
+    fseek(in, data_start, SEEK_SET);
+	int count = 2;
+	while(!feof(in)) {
+		pos = data_start + (count - 2 ) * cluster_size;
+		fread(&cluster, cluster_size, 1, in);
+		//if (cluster[0] != 0)
+		//	printf("Endereco Utilizadas: 0x%04X Pos: %d\n", pos, count);
+		count++;
+	}
+		
+	//printf("Nr clusters: %d\n", count);
+    fseek(in, start_fat1, SEEK_SET);
+    fread(&fat1, sizeof(fat1), 1, in);
+    printf("REMOVIDOS ");
+    int c = 0;
+    int achou = 0;
+	for (i = 2; i < count; i++) {
+		fseek(in, data_start + (i - 2 ) * cluster_size, SEEK_SET);
+		fread(&cluster, cluster_size, 1, in);
+		if (cluster[0] != 0) {
+			achou = 0;
+			for (j = 0; j < nr_fat_sectors; j++) {
+				if (fat1[j] != 0 && fat1[j] != 0xFFFF) {
+					if ((fat1[j] - 2) == i) {
+						achou = 1;
+					}
+				}
+			}
+			if (!achou) {
+				if (c > 0)
+					printf(",");
+				printf("%d",i);
+				c++;
+			}
+		}
+	}
+	printf("\n");
+}
+void copia_fat(FILE * in, FILE * out,int fat_in, int fat_out) {
 	
 }
 
