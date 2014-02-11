@@ -9,24 +9,33 @@ void print_file_info(Entry *entry);
 void dif_fat(FILE * in, BootSector bs, bool show);
 void blocos_livres(FILE * in, BootSector bs);
 void blocos_deletados(FILE * in, BootSector bs);
+void corrige_fat(FILE * in, int nr_fat);
 
 void copia_fat(FILE * in, FILE * out,int fat_in, int fat_out);
 //void seek_dir(FILE * in,
 void ajuda();
-FILE * init(const char * fileName);
+FILE * init(const char * fileName, char * str);
 BootSector ReadBootSector(FILE * in);
 
 int main(int argc, char ** argv) {
     
     if (argc >= 2) {
-		
-		FILE * fp = init("disco");
+		int copia_disabled = 0;
+		FILE * fp = init("disco", "r+b");
 		
 		if (!fp) {
 			printf("Nao foi possivel abrir o disco virtual, verifique se existe ou crie-o:\n");
 			printf("dd if=/dev/zero of=disco bs=1M count=2\n");
 			printf("mkfs.vfat -F16 disco\n");
 			return -1;
+		}
+		FILE * fp2 = init("disco_2", "r+b");
+		if (!fp2) {
+			printf("Nao foi possivel abrir o segundo disco virtual, verifique se existe ou crie-o:\n");
+			printf("dd if=/dev/zero of=disco_2 bs=1M count=2\n");
+			printf("mkfs.vfat -F16 disco_2\n");
+			
+			copia_disabled = 1;
 		}
 		
 	    BootSector bs = ReadBootSector(fp);
@@ -44,17 +53,26 @@ int main(int argc, char ** argv) {
 				blocos_deletados(fp,bs);
 			} else if (strcmp(argument,"cf1") == 0) {
 				printf("Corrigir a primeira cópia da FAT\n");
+				corrige_fat(fp,2);
 			} else if (strcmp(argument,"cf2") == 0) {
 				printf("Corrigir a segunda cópia da FAT\n");
+				corrige_fat(fp,1);
 			} else if (strcmp(argument,"cdf1") == 0) {
 				/**
-				 * Copia a fat1 do disco 2 para fat1 do disco 2 para gerar caso de testes
+				 * Copia a fat1 do disco 2 para fat1 do disco 1 para gerar caso de testes
 				 **/
-				FILE * fp2 = init("disco_2");
+				if (!copia_disabled) {
+					printf("Fazendo caso de testes, copiando fat1 do disco 2 para fat1 do disco 1...\n");
+					copia_fat(fp2,fp,1,1);
+				}
+
 			} else if (strcmp(argument,"cdf2") == 0) {
 				/**
 				 * Copia a fat1 do disco 2 para fat2 do disco 1 para gerar caso de testes
 				 **/
+				if (!copia_disabled) {
+					copia_fat(fp2,fp,1,2);
+				}
 			} else {
 				printf("Argumento desconhecido!\n");
 				ajuda();
@@ -118,7 +136,7 @@ void dif_fat(FILE * in, BootSector bs, bool show) {
     for (i = 0; i < nr_fat_sectors; i++) {
 		if (fat1[i] != fat2[i]) {
 			count++;
-			printf("DIF %d:%ud,%ud\n",i,fat1[i],fat2[i]);
+			printf("DIF %d:%d,%d\n",i,fat1[i],fat2[i]);
 		}
 	}
 	if (count == 0) 
@@ -219,7 +237,60 @@ void blocos_deletados(FILE * in, BootSector bs) {
 	}
 	printf("\n");
 }
-void copia_fat(FILE * in, FILE * out,int fat_in, int fat_out) {
+void corrige_fat(FILE * in, int nr_fat) {
+
+	BootSector bs = ReadBootSector(in);
+	
+	int nr_fat_sectors = (bs.fat_size_sectors * bs.sector_size / 2) - 2;
+	printf("nr_fat_sectors: %d\n", nr_fat_sectors);
+	u_int32_t start_fat1 = sizeof(BootSector) + (bs.reserved_sectors-1) * bs.sector_size;
+	u_int32_t start_fat2 = sizeof(BootSector) + start_fat1 + (bs.fat_size_sectors - 1) * bs.sector_size;
+    u_short fat1[nr_fat_sectors];
+    u_short fat2[nr_fat_sectors];
+
+	int i;
+	if (nr_fat == 1) {
+		fseek(in, start_fat1 + 4, SEEK_SET);
+		fread(&fat1, sizeof(fat1), 1, in);
+		fseek(in, start_fat2 + 4, SEEK_SET);
+		fwrite (fat1 , sizeof(fat1), 1, in);
+	} else if (nr_fat == 2) {
+		fseek(in, start_fat2 + 4, SEEK_SET);
+		fread(&fat2, sizeof(fat2), 1, in);
+		fseek(in, start_fat1 + 4, SEEK_SET);
+		fwrite (fat2 , sizeof(fat2), 1, in);
+	}
+	
+}
+void copia_fat(FILE * in, FILE * out,int nr_fat_in, int nr_fat_out) {
+	
+	BootSector bs_in = ReadBootSector(in);
+	BootSector bs_out = ReadBootSector(out);
+	
+	u_int32_t start_fat_in;
+	u_int32_t start_fat_out;
+	
+	int nr_fat_sectors = (bs_in.fat_size_sectors * bs_in.sector_size / 2) - 2;
+	u_short fat_in[nr_fat_sectors];
+	
+	if(nr_fat_in == 1) {
+		start_fat_in = sizeof(BootSector) + (bs_in.reserved_sectors-1) * bs_in.sector_size;
+	} else if (nr_fat_in == 2) {
+		u_int32_t start_fat1 = sizeof(BootSector) + (bs_in.reserved_sectors-1) * bs_in.sector_size;
+		start_fat_in = sizeof(BootSector) + start_fat1 + (bs_in.fat_size_sectors - 1) * bs_in.sector_size;
+	}
+	fseek(in, start_fat_in + 4, SEEK_SET);
+	fread(&fat_in, sizeof(fat_in), 1, in);
+	
+	u_short fat_out[nr_fat_sectors];
+	if(nr_fat_out == 1) {
+		start_fat_out = sizeof(BootSector) + (bs_out.reserved_sectors-1) * bs_out.sector_size;
+	} else if (nr_fat_out == 2) {
+		u_int32_t start_fat1 = sizeof(BootSector) + (bs_out.reserved_sectors-1) * bs_out.sector_size;
+		start_fat_out = sizeof(BootSector) + start_fat1 + (bs_out.fat_size_sectors - 1) * bs_out.sector_size;
+	}
+	fseek(out, start_fat_out + 4, SEEK_SET);
+	fwrite (fat_in , sizeof(fat_in), 1, out);
 	
 }
 
@@ -233,13 +304,14 @@ void ajuda() {
 	printf("	-cf2: Copia o conteúdo da primeira cópida da FAT na segunda cópia.\n");
 }
 
-FILE * init(const char * fileName) {
-    FILE * fp = fopen(fileName, "rb");
+FILE * init(const char * fileName, char * str) {
+    FILE * fp = fopen(fileName, str);
     return fp;
 }
 
 BootSector ReadBootSector(FILE * in) {
 	BootSector retorno;
+	rewind(in);
     fread(&retorno, sizeof(BootSector), 1, in);
 	return retorno;
 	
